@@ -1,0 +1,74 @@
+WITH
+  user_v3 AS (
+    SELECT
+      DATE_TRUNC('{{Time interval}}', evt_block_time) AS dt,
+      onBehalfOf AS user_address
+    FROM
+      kinza_v1_bnb.Pool_evt_Supply
+    UNION ALL
+    SELECT
+      DATE_TRUNC('{{Time interval}}', evt_block_time) AS dt,
+      user AS user_address
+    FROM
+      kinza_v1_bnb.Pool_evt_Borrow
+    UNION ALL
+    SELECT
+      DATE_TRUNC('{{Time interval}}', evt_block_time) AS dt,
+      user AS user_address
+    FROM
+      kinza_v1_bnb.Pool_evt_Repay
+    UNION ALL
+    SELECT
+      DATE_TRUNC('{{Time interval}}', evt_block_time) AS dt,
+      user AS user_address
+    FROM
+      kinza_v1_bnb.Pool_evt_Withdraw
+    UNION ALL
+    SELECT
+      DATE_TRUNC('{{Time interval}}', evt_block_time) AS dt,
+      initiator AS user_address
+    FROM
+      kinza_v1_bnb.Pool_evt_FlashLoan
+    UNION ALL
+    SELECT
+      DATE_TRUNC('{{Time interval}}', evt_block_time) AS dt,
+      liquidator AS user_address
+    FROM
+      kinza_v1_bnb.Pool_evt_LiquidationCall
+  ),
+  user_all_min_date AS (
+    SELECT
+      user_address,
+      MIN(dt) AS min_dt
+    FROM
+      user_v3
+    GROUP BY
+      user_address
+  ),
+  temp AS (
+    SELECT
+      min_dt,
+      COUNT(DISTINCT user_address) AS temp_users_count
+    FROM
+      user_all_min_date
+    GROUP BY
+      min_dt
+  ),
+  tt AS (
+    SELECT
+      min_dt,
+      temp_users_count,
+      SUM(temp_users_count) OVER (
+        ORDER BY
+          min_dt NULLS FIRST
+      ) AS cumulative_count
+    FROM temp
+  )
+SELECT
+  *
+FROM
+  tt
+WHERE
+  min_dt >= NOW() - INTERVAL '{{Trading Num Days}}' day
+ORDER BY
+  min_dt DESC
